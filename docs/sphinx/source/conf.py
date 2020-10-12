@@ -34,7 +34,7 @@ MOCK_MODULES = ['moveit_commander', 'PyKDL', 'rospy', 'tf', 'tf_conversions',
 'move_base_msgs.msg', 'move_base_msgs', 'nav_msgs', 'nav_msgs.srv',
 'intera_interface', 'intera_core_msgs.msg', 'intera_core_msgs', 'nav_msgs.msg',
 'ca_msgs.msg', 'ca_msgs', 'kobuki_msgs', 'kobuki_msgs.msg',
-'orb_slam2_ros.vslam', 'orb_slam2_ros', 'bezier', 'scipy.linalg']
+'orb_slam2_ros.vslam', 'orb_slam2_ros', 'bezier', 'scipy.linalg', 'moveit_msgs.msg']
 sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 pyrobot_dir = os.path.join(os.getcwd(), '..', '..', '..')
