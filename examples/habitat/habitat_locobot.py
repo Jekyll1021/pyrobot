@@ -102,6 +102,8 @@ class HabitatLocobot:
 
     def img_step(self):
         self.rgb_img = self.bot.camera.get_rgb()
+        print("Broadcast Image:")
+        print(self.rgb_img is not None)
         try:
             rgb_img_msg = self.cv_bridge.cv2_to_imgmsg(self.rgb_img, encoding="bgr8")
             self.rgb_pub.publish(rgb_img_msg)
@@ -114,6 +116,7 @@ class HabitatLocobot:
             self.base_step()
             if time.time() - prev_time > 1/(self.img_rate * self.realtime_scale_factor):
                 self.img_step()
+            prev_time = time.time()
             time.sleep(1/(self.ctrl_rate * self.realtime_scale_factor))
 
 if __name__ == "__main__":

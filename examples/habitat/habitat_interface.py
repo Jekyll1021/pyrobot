@@ -3,6 +3,7 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import CameraInfo, Image
 
 from cv_bridge import CvBridge
+from rosgraph_msgs.msg import Clock
 
 from pyrobot.utils.util import try_cv2_import
 cv2 = try_cv2_import()
@@ -26,15 +27,25 @@ class HabitatInterface(object):
         )
 
         self.rgb_img = None
+        self.time = None
         self.cv_bridge = CvBridge()
         rospy.Subscriber(
             '/camera/color/image_raw',
             Image,
             self._rgb_callback,
         )
+        rospy.Subscriber(
+            '/clock',
+            Clock,
+            self._time_callback,
+        )
+        rospy.sleep(1.)
 
     def _rgb_callback(self, rgb):
         self.rgb_img = self.cv_bridge.imgmsg_to_cv2(rgb, "bgr8")
+
+    def _time_callback(self, time):
+        self.time = time
 
     def stop(self):
         """
@@ -62,11 +73,10 @@ class HabitatInterface(object):
         msg.linear.x = fwd_speed
         msg.angular.z = turn_speed
 
-        start_time = rospy.get_time()
-        print(rospy.get_time())
+        start_time = self.time.clock.to_sec()
         self.ctrl_pub.publish(msg)
-        while rospy.get_time() - start_time < exe_time:
-            print(rospy.get_time())
+        while (self.time.clock.to_sec() - start_time) < exe_time:
+            print(self.time.clock.to_sec())
             self.ctrl_pub.publish(msg)
             rospy.sleep(1.0 / 10)
         self.stop()
