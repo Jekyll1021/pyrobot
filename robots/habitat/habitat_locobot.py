@@ -2,6 +2,9 @@ import numpy as np
 import math
 import pyrobot.utils.util as prutil
 import rospy
+import importlib
+
+import copy
 
 import habitat_sim
 import habitat_sim.agent as habAgent
@@ -9,9 +12,21 @@ import habitat_sim.utils as habUtils
 from habitat_sim.agent.controls import ActuationSpec
 import habitat_sim.bindings as hsim
 import habitat_sim.errors
+from habitat_sim.utils import common as utils
 
 import quaternion
 from tf.transformations import euler_from_quaternion, euler_from_matrix
+
+from geometry_msgs.msg import Twist
+from rosgraph_msgs.msg import Clock
+from sensor_msgs.msg import CameraInfo, Image
+
+from pyrobot.utils.util import try_cv2_import
+from cv_bridge import CvBridge
+
+import time
+
+cv2 = try_cv2_import()
 
 #################
 # util function #
@@ -22,7 +37,7 @@ def make_cfg(SIM):
     sim_cfg = hsim.SimulatorConfiguration()
 
     if SIM.SCENE_ID == "none":
-        SIM.SCENE_ID = "data/scene_datasets/habitat-test-scenes/skokloster-castle.glb"
+        SIM.SCENE_ID = "scenes/skokloster-castle.glb"
     sim_cfg.scene.id = SIM.SCENE_ID
 
     sim_cfg.enable_physics = SIM.PHYSICS
@@ -97,10 +112,16 @@ def make_cfg(SIM):
     return habitat_sim.Configuration(sim_cfg, [agent_cfg])
 
 class HabitatLocobot:
-	def __init__(self, configs):
+	def __init__(self, configs=None):
 		rospy.init_node("habitat_locobot")
 
 		self.configs = configs
+		if self.configs is None:
+			mod = importlib.import_module(
+				"configs.default_locobot"
+			)
+			cfg_func = getattr(mod, "get_cfg")
+			self.configs = cfg_func()
 
 		self.sim_config = copy.deepcopy(self.configs.COMMON.SIMULATOR)
 		self.sim_config.defrost()
@@ -137,6 +158,35 @@ class HabitatLocobot:
 		self.vel_control.controlling_ang_vel = True
 		self.vel_control.ang_vel_is_local = True
 
+		self.init_state = self.get_full_state()
+
+	def get_full_state(self):
+		# Returns habitat_sim.agent.AgentState
+		return self.agent.get_state()
+
+	def _rot_matrix(self, habitat_quat):
+		quat_list = [habitat_quat.x, habitat_quat.y, habitat_quat.z, habitat_quat.w]
+		return prutil.quat_to_rot_mat(quat_list)
+
+	def get_state(self):
+		# Returns (x, y, yaw)
+		cur_state = self.get_full_state()
+
+		init_rotation = self._rot_matrix(self.init_state.rotation)
+
+		# true position here refers to the relative position from
+		# where `self.init_state` is treated as origin
+		true_position = cur_state.position - self.init_state.position
+		true_position = np.matmul(init_rotation.transpose(), true_position, dtype=np.float64)
+
+		cur_rotation = self._rot_matrix(cur_state.rotation)
+		cur_rotation = np.matmul(init_rotation.transpose(), cur_rotation, dtype=np.float64)
+
+		(r, pitch, yaw) = euler_from_matrix(cur_rotation, axes="sxzy")
+		# Habitat has y perpendicular to map where as ROS has z perpendicular
+		# to the map. Where as x is same.
+		# Here ROS_X = -1 * habitat_z and ROS_Y = -1*habitat_x
+		return (-1 * true_position[2], -1 * true_position[0], yaw)
 
 	def _command_callback(self, msg):
 		self.lin_speed = msg.linear.x
@@ -169,12 +219,13 @@ class HabitatLocobot:
 		clock.clock = self.sim_time
 		self.clock_pub.publish(clock)
 		# self.visualize()
-		base_state = self.base.get_state()
+		base_state = self.get_state()
 		print("Base State:")
 		print(base_state)
 
 	def img_step(self):
-		self.rgb_img = self.bot.camera.get_rgb()
+		img = self.sim.get_sensor_observations()
+		self.rgb_img = img["rgb"][:, :, 0:3]
 		print("Broadcast Image:")
 		print(self.rgb_img is not None)
 		try:
@@ -192,3 +243,6 @@ class HabitatLocobot:
 			prev_time = time.time()
 			time.sleep(1/(self.ctrl_rate * self.realtime_scale_factor))
 
+if __name__ == "__main__":
+    server = HabitatLocobot()
+    server.spin()

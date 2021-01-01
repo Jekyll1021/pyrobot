@@ -6,10 +6,7 @@
 
 from yacs.config import CfgNode as CN
 
-from pyrobot.cfg.config import get_cfg_defaults
-
-
-_C = get_cfg_defaults()
+_C = CN()
 
 # whether the robot has an arm or not
 _C.HAS_ARM = False
@@ -24,24 +21,24 @@ _C.HAS_COMMON = True
 
 
 # Camera specific setting
-_CAMERAC = _C.CAMERA
+_C.CAMERA = CN()
 # CAMERA class name
-_CAMERAC.CLASS = "LoCoBotCamera"
+_C.CAMERA.CLASS = "LoCoBotCamera"
 # reset value for the pan
-_CAMERAC.RESET_PAN = 0.0
+_C.CAMERA.RESET_PAN = 0.0
 # reset value for the tilt
-_CAMERAC.RESET_TILT = 0.0
+_C.CAMERA.RESET_TILT = 0.0
 
 # Base specific settings
-_BASEC = _C.BASE
+_C.BASE = CN()
 # BASE class name
-_BASEC.CLASS = "LoCoBotBase"
+_C.BASE.CLASS = "LoCoBotBase"
 
-_COMMONC = _C.COMMON
+_C.COMMON = CN()
 # Name of the common class variable that will be shared in Robot class
-_COMMONC.NAME = "simulator"
+_C.COMMON.NAME = "simulator"
 # Class type to assign to 'simulator' variable
-_COMMONC.CLASS = "HabitatSim"
+_C.COMMON.CLASS = "HabitatSim"
 
 _C.COMMON.SIMULATOR = CN()
 
